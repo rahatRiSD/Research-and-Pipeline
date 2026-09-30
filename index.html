@@ -1,0 +1,1645 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="CPC-BanglaNLI - dependency-head conditioning for Bangla natural language inference. Live demo of CPC compound-predicate heads, an automated corpus-repair pipeline, BCSF corpus scoring, and BanglaBERT/BanglishBERT NLI.">
+<meta name="author" content="rahatRiSD">
+<meta name="keywords" content="Bangla NLP, natural language inference, BanglaBERT, BanglishBERT, dependency parsing, compound predicate, code-switching, low-resource NLP">
+<meta name="citation_title" content="Dependency-Head Conditioning for Bangla Natural Language Inference">
+<meta name="citation_author" content="Muktadir, Sk">
+<meta name="citation_author" content="rahatRiSD">
+<meta name="citation_publication_date" content="2026">
+<meta property="og:title" content="CPC-BanglaNLI">
+<meta property="og:description" content="Dependency-head conditioning for Bangla NLI - live research demo with CPC heads, corpus repair and BCSF scoring.">
+<meta property="og:type" content="article">
+<style>html{color-scheme:light dark}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>CPC-BanglaNLI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700;1,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&family=Noto+Serif+Bengali:wght@400;500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<style>
+/* ============================================================
+   CPC-BanglaNLI — research demo
+   Palette validated with the dataviz six-checks validator:
+     light  #4457C9 #C08308 #0E8F7B #C2384A  → ALL PASS
+     dark   #22A98F #7A8BEE #E05E72 #BC8418  → ALL PASS
+   Every series is also direct-labeled (required by the deutan WARN).
+   ============================================================ */
+:root{
+  /* surfaces & ink — cool neutrals, biased toward the indigo accent */
+  --bg:#FCFCFB;
+  --paper:#FFFFFF;
+  --paper-2:#F1F3F7;
+  --ink:#10131A;
+  --ink-2:#39404F;
+  --muted:#6C7488;
+  --line:#DCE0E8;
+  --line-2:#C3C9D6;
+  --accent:#4457C9;
+  --accent-wash:#EBEEFB;
+  --code-bg:#F4F5F9;
+  --shadow:0 1px 2px rgba(16,19,26,.05),0 10px 30px rgba(16,19,26,.06);
+
+  /* series — entity-bound, fixed order, never cycled */
+  --s-indigo:#4457C9;
+  --s-amber:#C08308;
+  --s-teal:#0E8F7B;
+  --s-crimson:#C2384A;
+  --grid:#E6E9F0;
+
+  --ok:#0E8F7B;
+  --warn:#C08308;
+  --bad:#C2384A;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0C0F16;
+    --paper:#12161F;
+    --paper-2:#191E2A;
+    --ink:#E9ECF3;
+    --ink-2:#B9C0CF;
+    --muted:#8790A3;
+    --line:#242B39;
+    --line-2:#323A4B;
+    --accent:#7A8BEE;
+    --accent-wash:#1A2039;
+    --code-bg:#161B26;
+    --shadow:0 1px 2px rgba(0,0,0,.5),0 14px 36px rgba(0,0,0,.4);
+    --s-indigo:#7A8BEE;
+    --s-amber:#BC8418;
+    --s-teal:#22A98F;
+    --s-crimson:#E05E72;
+    --grid:#222937;
+    --ok:#22A98F;
+    --warn:#BC8418;
+    --bad:#E05E72;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0C0F16;--paper:#12161F;--paper-2:#191E2A;--ink:#E9ECF3;--ink-2:#B9C0CF;
+  --muted:#8790A3;--line:#242B39;--line-2:#323A4B;--accent:#7A8BEE;--accent-wash:#1A2039;
+  --code-bg:#161B26;--shadow:0 1px 2px rgba(0,0,0,.5),0 14px 36px rgba(0,0,0,.4);
+  --s-indigo:#7A8BEE;--s-amber:#BC8418;--s-teal:#22A98F;--s-crimson:#E05E72;--grid:#222937;
+  --ok:#22A98F;--warn:#BC8418;--bad:#E05E72;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  font-size:15.5px;line-height:1.65;-webkit-font-smoothing:antialiased;
+}
+h1,h2,h3,h4{font-family:"Spectral",Georgia,"Times New Roman",serif;margin:0;line-height:1.16;text-wrap:balance;font-weight:600}
+p{margin:0}
+a{color:var(--accent)}
+.bn{font-family:"Noto Serif Bengali","Nirmala UI",serif;font-size:1.06em;line-height:1.95}
+.mono{font-family:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace}
+.eyebrow{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.17em;text-transform:uppercase;color:var(--muted)}
+.tnum{font-variant-numeric:tabular-nums}
+
+.wrap{max-width:1140px;margin:0 auto;padding-inline:20px}
+.narrow{max-width:72ch}
+
+/* ---------- header bar ---------- */
+.topbar{
+  position:sticky;top:env(safe-area-inset-top,0px);z-index:60;
+  background:color-mix(in srgb,var(--bg) 88%,transparent);
+  backdrop-filter:blur(12px);border-bottom:1px solid var(--line);
+}
+.topbar-in{display:flex;align-items:center;gap:16px;padding-block:9px}
+.tb-id{font-family:"IBM Plex Mono",monospace;font-size:12px;font-weight:500;letter-spacing:.02em;white-space:nowrap}
+.tb-id span{color:var(--muted)}
+.tb-nav{display:flex;gap:16px;margin-left:auto;font-size:13px;overflow-x:auto;scrollbar-width:none}
+.tb-nav::-webkit-scrollbar{display:none}
+.tb-nav a{color:var(--ink-2);text-decoration:none;white-space:nowrap;padding-block:4px;border-bottom:2px solid transparent}
+.tb-nav a:hover{color:var(--accent);border-bottom-color:var(--accent)}
+@media(max-width:780px){.tb-nav{display:none}}
+.status-chip{
+  display:inline-flex;align-items:center;gap:7px;flex:none;
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.09em;
+  padding:4px 9px;border-radius:5px;border:1px solid var(--line-2);color:var(--muted);
+  background:var(--paper);cursor:pointer;
+}
+.status-chip .led{width:7px;height:7px;border-radius:50%;background:var(--warn)}
+.status-chip.live .led{background:var(--ok)}
+
+/* ---------- masthead ---------- */
+.masthead{position:relative;border-bottom:1px solid var(--line);overflow:hidden}
+#embedbg{position:absolute;inset:0;width:100%;height:100%;opacity:.5}
+.masthead::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(85% 120% at 15% 45%,var(--bg) 26%,transparent 72%);
+}
+.masthead-in{position:relative;z-index:2;padding-block:clamp(38px,5.5vw,64px)}
+.venue{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:20px}
+.badge{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  padding:4px 10px;border-radius:4px;border:1px solid var(--line-2);color:var(--muted);background:var(--paper)
+}
+.badge.hl{border-color:var(--accent);color:var(--accent);background:var(--accent-wash)}
+.masthead h1{font-size:clamp(28px,4.4vw,46px);max-width:24ch;letter-spacing:-.015em}
+.masthead h1 .sub{display:block;font-size:.62em;font-weight:400;font-style:italic;color:var(--ink-2);margin-top:10px;letter-spacing:0}
+.authors{margin-top:22px;font-size:14.5px;color:var(--ink-2);max-width:60ch}
+.authors b{font-weight:600;color:var(--ink)}
+.authors sup{color:var(--accent);font-size:.8em}
+.affil{margin-top:6px;font-size:12.5px;color:var(--muted)}
+.artifacts{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px}
+.abtn{
+  display:inline-flex;align-items:center;gap:7px;text-decoration:none;
+  font-size:13px;font-weight:500;padding:8px 14px;border-radius:7px;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--ink);
+  transition:border-color .16s,transform .16s;
+}
+.abtn:hover{border-color:var(--accent);transform:translateY(-1px)}
+.abtn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+:root[data-theme="dark"] .abtn.primary,:root:not([data-theme="light"]) .abtn.primary{color:#0C0F16}
+.abtn svg{flex:none}
+
+/* ---------- section scaffolding ---------- */
+.sec{padding-block:clamp(40px,5vw,66px);border-bottom:1px solid var(--line)}
+.sec-n{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}
+.sec-n .num{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--accent);flex:none;padding-top:5px}
+.sec-n h2{font-size:clamp(21px,2.7vw,28px)}
+.sec-lede{color:var(--muted);max-width:74ch;margin-top:10px;font-size:15px}
+
+/* abstract */
+.abstract{
+  background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:0 10px 10px 0;padding:24px 26px;max-width:78ch;
+}
+.abstract p + p{margin-top:12px}
+.abstract .kw{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);font-size:13px;color:var(--muted)}
+
+/* contributions */
+.contribs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin-top:24px}
+@media(max-width:820px){.contribs{grid-template-columns:1fr}}
+.contrib{display:flex;gap:14px;background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
+.contrib .cid{
+  font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:500;flex:none;
+  width:30px;height:30px;border-radius:7px;display:grid;place-items:center;
+  background:var(--accent-wash);color:var(--accent);border:1px solid var(--line-2);
+}
+.contrib h3{font-size:16px;font-family:"IBM Plex Sans",sans-serif;font-weight:600}
+.contrib p{font-size:14px;color:var(--muted);margin-top:5px}
+
+/* figures */
+figure{margin:26px 0 0;background:var(--paper);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+figure .fig-body{padding:22px;overflow-x:auto}
+figcaption{
+  padding:13px 20px;border-top:1px solid var(--line);background:var(--paper-2);
+  font-size:13px;color:var(--ink-2);line-height:1.55;
+}
+figcaption b{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);font-weight:500;margin-right:8px}
+
+/* provisional marker */
+.prov{
+  display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono",monospace;
+  font-size:10px;letter-spacing:.09em;text-transform:uppercase;padding:3px 8px;border-radius:4px;
+  background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--warn);
+  border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);vertical-align:2px;
+}
+
+/* ---------- demo console ---------- */
+.console{background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);overflow:hidden;margin-top:26px}
+.tabs{display:flex;border-bottom:1px solid var(--line);background:var(--paper-2);overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{
+  font:inherit;font-size:13.5px;font-weight:500;background:transparent;border:0;cursor:pointer;
+  padding:14px 18px;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;
+  display:flex;align-items:center;gap:8px;
+}
+.tab .tn{font-family:"IBM Plex Mono",monospace;font-size:10.5px;opacity:.75}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);background:var(--paper)}
+.panel{padding:24px}
+@media(max-width:600px){.panel{padding:18px 16px}}
+
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+textarea,input[type=text],input[type=password],select{
+  font:inherit;width:100%;background:var(--bg);color:var(--ink);
+  border:1px solid var(--line-2);border-radius:8px;padding:10px 12px;
+}
+textarea{resize:vertical;min-height:62px;font-family:"Noto Serif Bengali","IBM Plex Sans",serif;line-height:1.85}
+textarea:focus,input:focus,select:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:700px){.row2{grid-template-columns:1fr}}
+.ctrl-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;margin-top:14px}
+.ctrl-row .field{min-width:150px}
+.run{
+  font:inherit;font-size:13.5px;font-weight:600;cursor:pointer;border:0;border-radius:8px;
+  padding:10px 20px;background:var(--accent);color:#fff;display:inline-flex;align-items:center;gap:8px;
+}
+:root[data-theme="dark"] .run,:root:not([data-theme="light"]) .run{color:#0C0F16}
+.run:disabled{opacity:.55;cursor:progress}
+.run.sec{background:transparent;color:var(--ink);border:1px solid var(--line-2);font-weight:500}
+.chiprow{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.chip{
+  font:inherit;font-size:12.5px;cursor:pointer;background:var(--paper-2);color:var(--ink-2);
+  border:1px solid var(--line);border-radius:999px;padding:5px 12px;
+}
+.chip:hover{border-color:var(--accent);color:var(--ink)}
+.chip[aria-pressed="true"]{background:var(--accent-wash);border-color:var(--accent);color:var(--accent)}
+.chip .bnx{font-family:"Noto Serif Bengali",serif}
+
+.result{margin-top:22px;padding-top:20px;border-top:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:26px}
+@media(max-width:800px){.result{grid-template-columns:1fr;gap:20px}}
+.verdict{display:flex;align-items:center;gap:12px}
+.vlabel{font-family:"Spectral",serif;font-size:25px;font-weight:600}
+.vdot{width:12px;height:12px;border-radius:50%;flex:none;box-shadow:0 0 0 2px var(--paper)}
+.probs{display:flex;flex-direction:column;gap:11px;margin-top:18px}
+.prob{display:grid;grid-template-columns:104px minmax(0,1fr) 52px;align-items:center;gap:11px;font-size:13px}
+.prob .track{height:9px;border-radius:0 4px 4px 0;background:var(--grid);overflow:hidden}
+.prob .track i{display:block;height:100%;border-radius:0 4px 4px 0;width:0;transition:width .7s cubic-bezier(.22,.8,.2,1)}
+.prob .pv{text-align:right;font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.meta-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.meta-grid div{background:var(--paper);padding:11px 13px}
+.meta-grid .k{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.meta-grid .v{font-size:14px;font-variant-numeric:tabular-nums;margin-top:2px}
+
+/* token attribution */
+.tokens{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.tok{
+  font-family:"Noto Serif Bengali",serif;font-size:15px;padding:3px 8px;border-radius:5px;
+  border:1px solid var(--line);background:var(--paper-2);position:relative;cursor:default;
+}
+.tok .att{position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:var(--accent)}
+
+/* ---------- dependency / CPC view ---------- */
+.dep-scroll{overflow-x:auto;padding-bottom:6px}
+.dep-legend{display:flex;flex-wrap:wrap;gap:16px;margin-top:14px;font-size:12.5px;color:var(--muted)}
+.dep-legend span{display:inline-flex;align-items:center;gap:7px}
+.swatch{width:11px;height:11px;border-radius:3px;flex:none}
+.headcard{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:20px}
+@media(max-width:700px){.headcard{grid-template-columns:1fr}}
+.hc{border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--paper-2)}
+.hc .lab{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.hc .val{font-family:"Noto Serif Bengali",serif;font-size:21px;margin-top:6px}
+.hc .why{font-size:13px;color:var(--muted);margin-top:8px}
+.hc.swapped{border-color:var(--accent);background:var(--accent-wash)}
+
+/* ---------- BCSF ---------- */
+.bcsf{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:28px}
+@media(max-width:860px){.bcsf{grid-template-columns:1fr}}
+.formula{
+  background:var(--code-bg);border:1px solid var(--line);border-radius:10px;padding:20px;
+  font-family:"IBM Plex Mono",monospace;font-size:14px;overflow-x:auto;text-align:center;
+}
+.formula .big{font-size:17px;white-space:nowrap}
+.formula sub{font-size:.7em;color:var(--muted)}
+.formula .term{color:var(--accent)}
+.formula .note{display:block;margin-top:12px;font-size:11.5px;color:var(--muted);font-family:"IBM Plex Sans",sans-serif;text-align:left}
+.comps{display:flex;flex-direction:column;gap:16px;margin-top:22px}
+.comp{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center}
+.comp .cname{font-size:14px;font-weight:500}
+.comp .cdesc{grid-column:1;font-size:12.5px;color:var(--muted)}
+.comp .cval{font-family:"IBM Plex Mono",monospace;font-variant-numeric:tabular-nums;font-size:14px;grid-row:1;grid-column:2}
+.comp input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent);margin:2px 0 0}
+.gauge{display:flex;flex-direction:column;align-items:center;gap:10px;background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:22px 18px;height:fit-content}
+.gauge .score{font-family:"Spectral",serif;font-size:44px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.gauge .band{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;padding:4px 10px;border-radius:4px}
+.gauge .hint{font-size:12.5px;color:var(--muted);text-align:center}
+
+/* ---------- pipeline ---------- */
+.stages{display:flex;flex-direction:column;gap:0;margin-top:8px}
+.stage{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:16px;padding:16px 0;border-bottom:1px dashed var(--line);align-items:start}
+.stage:last-child{border-bottom:0}
+.stage .sn{
+  width:28px;height:28px;border-radius:50%;display:grid;place-items:center;flex:none;
+  font-family:"IBM Plex Mono",monospace;font-size:11px;border:1px solid var(--line-2);
+  background:var(--paper-2);color:var(--muted);transition:background .3s,color .3s,border-color .3s;
+}
+.stage.done .sn{background:var(--ok);border-color:var(--ok);color:var(--paper)}
+.stage.active .sn{border-color:var(--accent);color:var(--accent);animation:spinp 1s linear infinite}
+@keyframes spinp{50%{box-shadow:0 0 0 4px var(--accent-wash)}}
+.stage h4{font-size:15px;font-family:"IBM Plex Sans",sans-serif;font-weight:600}
+.stage p{font-size:13px;color:var(--muted);margin-top:3px}
+.stage .cnt{font-family:"IBM Plex Mono",monospace;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--muted);text-align:right;white-space:nowrap}
+.stage.done .cnt{color:var(--ink-2)}
+.stage .cnt b{color:var(--ok);font-weight:500}
+.diff{background:var(--code-bg);border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:20px;font-size:14px;overflow-x:auto}
+.diff .dl{display:flex;gap:12px;align-items:baseline;padding:4px 0}
+.diff .dm{font-family:"IBM Plex Mono",monospace;font-size:11px;width:16px;flex:none;color:var(--muted)}
+.diff .minus{color:var(--bad)}
+.diff .plus{color:var(--ok)}
+.diff del{background:color-mix(in srgb,var(--bad) 18%,transparent);text-decoration:line-through;border-radius:3px;padding:0 2px}
+.diff ins{background:color-mix(in srgb,var(--ok) 18%,transparent);text-decoration:none;border-radius:3px;padding:0 2px}
+
+/* ---------- tables ---------- */
+.tbl-wrap{overflow-x:auto;margin-top:24px}
+table.rt{width:100%;border-collapse:collapse;font-size:14px;min-width:540px}
+table.rt caption{caption-side:top;text-align:left;font-size:13px;color:var(--ink-2);padding-bottom:12px}
+table.rt caption b{font-family:"IBM Plex Mono",monospace;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);font-weight:500;margin-right:8px}
+table.rt thead th{
+  font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+  font-weight:500;color:var(--muted);text-align:right;padding:0 10px 9px;border-bottom:1.5px solid var(--ink-2);
+}
+table.rt thead th:first-child{text-align:left;padding-left:0}
+table.rt tbody td{padding:10px;text-align:right;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+table.rt tbody td:first-child{text-align:left;padding-left:0}
+table.rt tbody tr:last-child td{border-bottom:1.5px solid var(--ink-2)}
+table.rt tbody tr.best td{background:var(--accent-wash)}
+table.rt tbody tr.best td:first-child{font-weight:600}
+table.rt .delta{color:var(--ok);font-family:"IBM Plex Mono",monospace;font-size:13px}
+table.rt .mdl{display:inline-flex;align-items:center;gap:8px}
+table.rt .rule-top{border-top:1.5px solid var(--ink-2)}
+.sub-t{font-size:11.5px;color:var(--muted);font-family:"IBM Plex Mono",monospace}
+
+/* ---------- chart shells ---------- */
+.legend{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px;font-size:12.5px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.chart-host{position:relative}
+.tip{
+  position:absolute;pointer-events:none;opacity:0;transition:opacity .12s;
+  background:var(--ink);color:var(--bg);font-size:12px;padding:7px 10px;border-radius:7px;
+  font-family:"IBM Plex Mono",monospace;white-space:nowrap;z-index:5;transform:translate(-50%,-115%);
+  box-shadow:0 4px 14px rgba(0,0,0,.25);
+}
+
+/* ---------- endpoint config ---------- */
+.cfg{background:var(--paper);border:1px solid var(--line);border-radius:12px;margin-top:24px;overflow:hidden}
+.cfg summary{
+  cursor:pointer;padding:15px 20px;font-size:14px;font-weight:600;display:flex;align-items:center;gap:10px;
+  list-style:none;
+}
+.cfg summary::-webkit-details-marker{display:none}
+.cfg summary::after{content:"▾";margin-left:auto;color:var(--muted);transition:transform .2s}
+.cfg[open] summary::after{transform:rotate(180deg)}
+.cfg-body{padding:0 20px 20px;border-top:1px solid var(--line);padding-top:18px;display:flex;flex-direction:column;gap:14px}
+.cfg-note{font-size:13px;color:var(--muted)}
+.repro{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:24px}
+.repro div{background:var(--paper);padding:14px 16px}
+.repro .k{font-family:"IBM Plex Mono",monospace;font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.repro .v{font-size:14px;margin-top:3px;word-break:break-word}
+
+/* ---------- bibtex ---------- */
+pre.bib{
+  background:var(--code-bg);border:1px solid var(--line);border-radius:10px;padding:18px;
+  font-family:"IBM Plex Mono",monospace;font-size:12.5px;line-height:1.7;overflow-x:auto;margin:16px 0 0;
+}
+pre.bib .key{color:var(--accent)}
+.copy{margin-top:12px}
+
+/* ---------- 3D figure ---------- */
+.embed-fig{position:relative;height:370px;background:var(--paper-2);border-bottom:1px solid var(--line)}
+#embed3d{position:absolute;inset:0;width:100%;height:100%}
+.embed-ctrl{position:absolute;left:14px;bottom:14px;display:flex;flex-wrap:wrap;gap:7px;z-index:3}
+.embed-ctrl button{
+  font:inherit;font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;
+  cursor:pointer;padding:5px 10px;border-radius:5px;border:1px solid var(--line-2);
+  background:color-mix(in srgb,var(--paper) 88%,transparent);color:var(--ink-2);backdrop-filter:blur(6px);
+}
+.embed-ctrl button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.embed-key{position:absolute;right:14px;top:14px;display:flex;flex-direction:column;gap:6px;z-index:3;font-size:11.5px}
+.embed-key span{display:inline-flex;align-items:center;gap:7px;background:color-mix(in srgb,var(--paper) 82%,transparent);padding:2px 8px;border-radius:5px;backdrop-filter:blur(6px)}
+
+/* ---------- footer ---------- */
+footer{padding-block:32px}
+.foot-in{display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:flex-end;font-size:13px;color:var(--muted)}
+.sig .by{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase}
+.sig .name{font-family:"Spectral",serif;font-style:italic;font-size:26px;color:var(--ink);line-height:1.2}
+
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}
+}
+</style>
+
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar-in">
+    <span class="tb-id">CPC-BanglaNLI <span>· research demo</span></span>
+    <nav class="tb-nav">
+      <a href="#abstract">Abstract</a>
+      <a href="#method">Method</a>
+      <a href="#demo">Live demo</a>
+      <a href="#results">Results</a>
+      <a href="#repro">Reproducibility</a>
+      <a href="#cite">Cite</a>
+    </nav>
+    <button class="status-chip" id="statusChip" type="button" title="Backend status — click to configure">
+      <span class="led"></span><span id="statusText">MOCK</span>
+    </button>
+  </div>
+</header>
+
+<div class="masthead">
+  <canvas id="embedbg" aria-hidden="true"></canvas>
+  <div class="wrap masthead-in">
+    <div class="venue">
+      <span class="badge hl">Preprint</span>
+      <span class="badge">Bangla NLP</span>
+      <span class="badge">Natural Language Inference</span>
+      <span class="badge">Under review</span>
+    </div>
+    <h1>Dependency-Head Conditioning for Bangla Natural&nbsp;Language Inference
+      <span class="sub">Compound-predicate heads, corpus repair, and a structural-fidelity score for low-resource NLI</span>
+    </h1>
+    <p class="authors">
+      <b>Sk Muktadir</b><sup>1</sup> · <b>rahatRiSD</b><sup>1</sup>
+    </p>
+    <p class="affil">
+      <sup>1</sup> Placeholder affiliation — replace with your department and institution.
+    </p>
+    <div class="artifacts">
+      <a class="abtn primary" href="#demo">
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 2l9 5-9 5z" fill="currentColor"/></svg>
+        Run the live demo
+      </a>
+      <a class="abtn" href="#cite">
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3.5 1.5h5l3 3v8h-8z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+        Paper (PDF)
+      </a>
+      <a class="abtn" href="https://github.com/rahatRiSD">
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0a8 8 0 00-2.5 15.6c.4.1.5-.2.5-.4v-1.4c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5 0-.5 0-.5.8.1 1.2.8 1.2.8.7 1.2 1.9.9 2.4.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-3.9 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 014 0c1.5-1 2.2-.8 2.2-.8.5 1.1.2 1.9.1 2.1.5.5.8 1.2.8 2.1 0 3-1.8 3.7-3.6 3.9.4.3.7.9.7 1.8v2.2c0 .2.1.5.6.4A8 8 0 008 0z" fill="currentColor"/></svg>
+        Code
+      </a>
+      <a class="abtn" href="#repro">
+        <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><ellipse cx="7" cy="3.2" rx="4.8" ry="1.9" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M2.2 3.2v7.6c0 1 2.2 1.9 4.8 1.9s4.8-.9 4.8-1.9V3.2" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>
+        Data &amp; checkpoints
+      </a>
+    </div>
+  </div>
+</div>
+
+<main>
+<!-- ============ 1. ABSTRACT ============ -->
+<section class="sec wrap" id="abstract">
+  <div class="sec-n"><span class="num">1</span><h2>Abstract</h2></div>
+  <div class="abstract">
+    <p>Bangla natural language inference remains difficult not because encoders are weak, but because the
+    supervision they read is structurally noisy. Two properties of Bangla are responsible. First,
+    <b>compound predicates</b> — a lexical verb followed by a light or vector verb, as in
+    <span class="bn">কিনে এনেছে</span> — split the semantic head from the inflected syntactic head, so an encoder
+    conditioned on the surface head attends to the wrong token. Second, corpora assembled from web text carry
+    inconsistent Unicode normalisation, stray zero-width joiners, and unsegmented code-switched spans, all of
+    which silently corrupt tokenisation before the model ever sees a sentence.</p>
+    <p>We address both. We define a <b>CPC (Compound Predicate Construction) dependency-head workflow</b> that
+    identifies compound-predicate spans, separates the lexical head from the syntactic head, and conditions the
+    NLI classifier on the lexical head. We pair it with an <b>automated corpus-repair pipeline</b> that
+    normalises script, segments code-switched spans, and re-attaches dependency arcs inside repaired spans. To
+    measure whether a repaired corpus is actually usable rather than merely cleaner, we introduce
+    <b>BCSF (Bangla Corpus Structural Fidelity)</b>, a weighted composite of head-attachment accuracy,
+    inter-annotator agreement, code-switch consistency, and orthographic normalisation.</p>
+    <p>Evaluated with BanglaBERT and BanglishBERT against multilingual baselines, CPC conditioning improves
+    accuracy consistently, with the largest gains on premise–hypothesis pairs whose inference hinges on a
+    compound predicate. The demo below runs the full path — repair, parse, infer, score — on sentences you type.</p>
+    <p class="kw"><b>Keywords</b> — Bangla NLP · natural language inference · dependency parsing · compound
+    predicates · code-switching · low-resource corpora · corpus quality metrics</p>
+  </div>
+</section>
+
+<!-- ============ 2. CONTRIBUTIONS ============ -->
+<section class="sec wrap" id="contrib">
+  <div class="sec-n"><span class="num">2</span><h2>Contributions</h2></div>
+  <p class="sec-lede">Four contributions, each with a corresponding module in the live demo.</p>
+  <div class="contribs">
+    <div class="contrib"><span class="cid">C1</span><div>
+      <h3>CPC dependency-head workflow</h3>
+      <p>A deterministic procedure that detects compound-predicate spans, labels V<sub>1</sub> as the lexical
+      head and V<sub>2</sub> as the syntactic head, and re-points the classifier's head embedding at
+      V<sub>1</sub>.</p>
+    </div></div>
+    <div class="contrib"><span class="cid">C2</span><div>
+      <h3>Automated corpus-repair pipeline</h3>
+      <p>Five ordered stages from Unicode normalisation to leakage removal, each reporting what it changed, so
+      repair is auditable rather than a black box.</p>
+    </div></div>
+    <div class="contrib"><span class="cid">C3</span><div>
+      <h3>BCSF, a corpus-fidelity score</h3>
+      <p>A single interpretable number with a published weighting, so two versions of a corpus — or two repair
+      configurations — can be compared directly.</p>
+    </div></div>
+    <div class="contrib"><span class="cid">C4</span><div>
+      <h3>Bangla / Banglish NLI evaluation</h3>
+      <p>Monolingual and code-mixed evaluation of BanglaBERT and BanglishBERT with and without CPC
+      conditioning, including a compound-predicate-only subset.</p>
+    </div></div>
+  </div>
+</section>
+
+<!-- ============ 3. METHOD ============ -->
+<section class="sec wrap" id="method">
+  <div class="sec-n"><span class="num">3</span><h2>Method</h2></div>
+  <p class="sec-lede">The system is a single forward path. Raw text is repaired before it is parsed, parsed
+  before heads are selected, and only then encoded — so every downstream component sees text whose structure
+  has already been made explicit.</p>
+
+  <figure>
+    <div class="fig-body" id="archFig"></div>
+    <figcaption><b>Figure 1</b> System architecture. The corpus-repair pipeline (§3.1) feeds the CPC
+    dependency-head workflow (§3.2), which conditions the encoder's pooled representation before the
+    three-way NLI head. BCSF (§3.3) is computed over the repaired corpus and is used for model selection,
+    not as a training signal.</figcaption>
+  </figure>
+
+  <figure>
+    <div class="embed-fig">
+      <canvas id="embed3d"></canvas>
+      <div class="embed-key" id="embedKey"></div>
+      <div class="embed-ctrl">
+        <button type="button" id="embToggle" aria-pressed="true">Rotating</button>
+        <button type="button" id="embColorClass" aria-pressed="true">Colour: class</button>
+        <button type="button" id="embColorModel" aria-pressed="false">Colour: model</button>
+      </div>
+    </div>
+    <figcaption><b>Figure 2</b> Pooled sentence-pair representations after CPC conditioning, projected to three
+    dimensions with UMAP and rendered live. Entailment and contradiction separate cleanly; neutral pairs
+    occupy the boundary region, which is where the compound-predicate errors concentrate. Drag to inspect.
+    <span class="prov">Illustrative projection</span></figcaption>
+  </figure>
+</section>
+
+<!-- ============ 4. LIVE DEMO ============ -->
+<section class="sec wrap" id="demo">
+  <div class="sec-n"><span class="num">4</span><h2>Live demo</h2></div>
+  <p class="sec-lede">Four modules, in pipeline order. With no endpoint configured the page runs a
+  deterministic local mock so results are reproducible offline; set an endpoint in §5 to call your own
+  server and the badge in the header turns <b>LIVE</b>.</p>
+
+  <div class="console">
+    <div class="tabs" role="tablist" aria-label="Demo modules">
+      <button class="tab" role="tab" id="t-nli" aria-selected="true" aria-controls="p-nli"><span class="tn">4.1</span> NLI inference</button>
+      <button class="tab" role="tab" id="t-cpc" aria-selected="false" aria-controls="p-cpc"><span class="tn">4.2</span> CPC heads</button>
+      <button class="tab" role="tab" id="t-bcsf" aria-selected="false" aria-controls="p-bcsf"><span class="tn">4.3</span> BCSF</button>
+      <button class="tab" role="tab" id="t-rep" aria-selected="false" aria-controls="p-rep"><span class="tn">4.4</span> Corpus repair</button>
+    </div>
+
+    <!-- 4.1 NLI -->
+    <div class="panel" id="p-nli" role="tabpanel" aria-labelledby="t-nli">
+      <div class="chiprow" id="exChips"></div>
+      <div class="row2" style="margin-top:18px">
+        <div class="field">
+          <label for="premise">Premise</label>
+          <textarea id="premise" spellcheck="false"></textarea>
+        </div>
+        <div class="field">
+          <label for="hypothesis">Hypothesis</label>
+          <textarea id="hypothesis" spellcheck="false"></textarea>
+        </div>
+      </div>
+      <div class="ctrl-row">
+        <div class="field">
+          <label for="modelSel">Encoder</label>
+          <select id="modelSel">
+            <option value="banglabert">BanglaBERT (csebuetnlp/banglabert)</option>
+            <option value="banglishbert">BanglishBERT (csebuetnlp/banglishbert)</option>
+            <option value="xlmr">XLM-R base (baseline)</option>
+            <option value="mbert">mBERT (baseline)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="cpcSel">Head conditioning</label>
+          <select id="cpcSel">
+            <option value="on">CPC lexical head (ours)</option>
+            <option value="off">Surface head (ablation)</option>
+          </select>
+        </div>
+        <button class="run" id="runNli" type="button">Run inference</button>
+      </div>
+
+      <div class="result">
+        <div>
+          <p class="eyebrow">Predicted label</p>
+          <div class="verdict" style="margin-top:8px">
+            <span class="vdot" id="vdot"></span>
+            <span class="vlabel" id="vlabel">—</span>
+          </div>
+          <div class="probs" id="probs"></div>
+          <p class="eyebrow" style="margin-top:22px">Premise tokens · attribution to predicted label</p>
+          <div class="tokens" id="attTokens"></div>
+        </div>
+        <div>
+          <p class="eyebrow" style="margin-bottom:8px">Run metadata</p>
+          <div class="meta-grid" id="meta"></div>
+          <p style="font-size:12.5px;color:var(--muted);margin-top:14px" id="cpcNote"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4.2 CPC -->
+    <div class="panel" id="p-cpc" role="tabpanel" aria-labelledby="t-cpc" hidden>
+      <p style="font-size:14.5px;color:var(--ink-2);max-width:74ch">The parse below is the premise from §4.1.
+      Arcs above the tokens are dependency relations; the bracketed span is the detected compound predicate.
+      <b>V<sub>1</sub></b> carries the lexical content, <b>V<sub>2</sub></b> carries tense, aspect and person —
+      the workflow's whole job is to stop the classifier from reading V<sub>2</sub> as the meaning of the clause.</p>
+      <div class="dep-scroll" id="depFig" style="margin-top:20px"></div>
+      <div class="dep-legend">
+        <span><i class="swatch" style="background:var(--s-indigo)"></i> Core argument (nsubj, obj)</span>
+        <span><i class="swatch" style="background:var(--muted)"></i> Modifier (obl, advmod)</span>
+        <span><i class="swatch" style="background:var(--s-crimson)"></i> Compound-predicate link</span>
+        <span><i class="swatch" style="background:var(--s-teal)"></i> Selected lexical head</span>
+      </div>
+      <div class="headcard">
+        <div class="hc" id="hcSyn">
+          <div class="lab">Syntactic head — V<sub>2</sub></div>
+          <div class="val" id="synHead">—</div>
+          <div class="why">Bears the finite inflection. This is what a surface-head parser hands the encoder, and
+          it is frequently semantically empty.</div>
+        </div>
+        <div class="hc swapped" id="hcLex">
+          <div class="lab">Lexical head — V<sub>1</sub> · selected</div>
+          <div class="val" id="lexHead">—</div>
+          <div class="why">Carries the event the hypothesis must be checked against. CPC re-points the pooled
+          head embedding here.</div>
+        </div>
+      </div>
+      <div class="meta-grid" id="cpcMeta" style="margin-top:18px"></div>
+    </div>
+
+    <!-- 4.3 BCSF -->
+    <div class="panel" id="p-bcsf" role="tabpanel" aria-labelledby="t-bcsf" hidden>
+      <div class="bcsf">
+        <div>
+          <div class="formula">
+            <div class="big">
+              BCSF = <span class="term">w<sub>H</sub></span>·H<sub>att</sub>
+              + <span class="term">w<sub>A</sub></span>·A<sub>κ</sub>
+              + <span class="term">w<sub>C</sub></span>·C<sub>cs</sub>
+              + <span class="term">w<sub>S</sub></span>·S<sub>orth</sub>
+            </div>
+            <span class="note">All four components are normalised to [0,1]; weights sum to 1. A corpus scoring
+            below 0.70 is treated as unfit for NLI supervision without a further repair pass.</span>
+          </div>
+          <div class="comps" id="comps"></div>
+          <p style="font-size:12.5px;color:var(--muted);margin-top:18px">Move a slider to see how the composite
+          responds. <b>The four components and their weights are a working definition</b> — swap them for the
+          ones in your paper in the <code class="mono">SPEC.bcsf</code> block of the source.
+          <span class="prov">Definition provisional</span></p>
+        </div>
+        <div class="gauge">
+          <p class="eyebrow">Composite</p>
+          <div class="score" id="bcsfScore">0.00</div>
+          <span class="band" id="bcsfBand">—</span>
+          <p class="hint" id="bcsfHint"></p>
+        </div>
+      </div>
+      <figure>
+        <div class="fig-body">
+          <div class="legend"><span>Contribution to the composite, in weight order — each bar is direct-labeled</span></div>
+          <div class="chart-host" id="bcsfChart"></div>
+        </div>
+        <figcaption><b>Figure 3</b> Per-component contribution w<sub>i</sub>·x<sub>i</sub> at the current
+        setting. Head attachment dominates by design: it is the component the CPC workflow is built to move.</figcaption>
+      </figure>
+    </div>
+
+    <!-- 4.4 repair -->
+    <div class="panel" id="p-rep" role="tabpanel" aria-labelledby="t-rep" hidden>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between">
+        <p style="font-size:14.5px;color:var(--ink-2);max-width:60ch">Five ordered stages. Each reports the
+        number of sentences it altered, so a repair run is auditable and reversible.</p>
+        <button class="run" id="runRepair" type="button">Run pipeline</button>
+      </div>
+      <div class="stages" id="stages"></div>
+      <p class="eyebrow" style="margin-top:22px">Worked example · stage 1 and 3 output</p>
+      <div class="diff">
+        <div class="dl"><span class="dm minus">−</span><span class="bn">রহিম বাজারে গিয়ে<del>&#8204;</del> মাছ কিনে এনেছে<del> .</del></span></div>
+        <div class="dl"><span class="dm plus">+</span><span class="bn">রহিম বাজারে গিয়ে মাছ কিনে এনেছে<ins>।</ins></span></div>
+        <div class="dl" style="margin-top:8px;border-top:1px solid var(--line);padding-top:10px">
+          <span class="dm"></span>
+          <span style="font-size:12.5px;color:var(--muted)">Zero-width non-joiner removed after
+          <span class="bn">গিয়ে</span>; Latin full stop replaced with দাঁড়ি (U+0964). Both changes alter the
+          token sequence the encoder receives, and neither is visible to a human proofreader.</span>
+        </div>
+      </div>
+      <div class="meta-grid" id="repMeta" style="margin-top:20px"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 5. RESULTS ============ -->
+<section class="sec wrap" id="results">
+  <div class="sec-n"><span class="num">5</span><h2>Results</h2></div>
+  <p class="sec-lede">Accuracy on the Bangla NLI test split, with and without CPC head conditioning. The
+  compound-predicate subset isolates pairs whose gold label depends on resolving a compound predicate
+  correctly — the phenomenon the method targets.</p>
+
+  <div class="tbl-wrap">
+    <table class="rt">
+      <caption><b>Table 1</b> Main results. Accuracy (%) on the full test split and on the compound-predicate
+      subset. Δ is the gain from CPC conditioning. <span class="prov">Illustrative values — substitute your runs</span></caption>
+      <thead>
+        <tr>
+          <th>Encoder</th><th>Params</th><th>Surface head</th><th>+ CPC</th><th>Δ</th><th>CP subset</th><th>BCSF</th>
+        </tr>
+      </thead>
+      <tbody id="mainTbl"></tbody>
+    </table>
+  </div>
+
+  <figure>
+    <div class="fig-body">
+      <div class="legend" id="barLegend"></div>
+      <div class="chart-host" id="barChart"></div>
+    </div>
+    <figcaption><b>Figure 4</b> Accuracy by encoder, surface head versus CPC conditioning. The gain is larger
+    for the Bangla-specific encoders than for the multilingual baselines, consistent with CPC supplying
+    structure that a Bangla-pretrained encoder can already exploit.</figcaption>
+  </figure>
+
+  <div class="tbl-wrap">
+    <table class="rt">
+      <caption><b>Table 2</b> Ablation over the repair pipeline, BanglaBERT + CPC. Each row removes one stage
+      and retrains. <span class="prov">Illustrative values</span></caption>
+      <thead><tr><th>Configuration</th><th>BCSF</th><th>Accuracy</th><th>Δ vs. full</th></tr></thead>
+      <tbody id="ablTbl"></tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ============ 6. REPRODUCIBILITY ============ -->
+<section class="sec wrap" id="repro">
+  <div class="sec-n"><span class="num">6</span><h2>Reproducibility</h2></div>
+  <p class="sec-lede">Everything the demo needs to talk to a real backend, and the settings the reported
+  numbers were produced under.</p>
+
+  <details class="cfg" id="cfgPanel">
+    <summary>Backend endpoint · <span class="mono" style="font-weight:400;color:var(--muted)" id="cfgState">not configured — using local mock</span></summary>
+    <div class="cfg-body">
+      <p class="cfg-note">The demo issues <code class="mono">POST {base}/nli</code> with
+      <code class="mono">{premise, hypothesis, model, cpc}</code> and expects
+      <code class="mono">{label, probs:{entailment,neutral,contradiction}, tokens:[...], attributions:[...], latency_ms}</code>.
+      Any server matching that contract works — FastAPI, a Hugging Face Space, or a notebook tunnel.</p>
+      <div class="row2">
+        <div class="field">
+          <label for="epUrl">Base URL</label>
+          <input type="text" id="epUrl" placeholder="https://your-space.hf.space" spellcheck="false">
+        </div>
+        <div class="field">
+          <label for="epTok">Bearer token (optional)</label>
+          <input type="password" id="epTok" placeholder="kept in this browser only" spellcheck="false">
+        </div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:10px">
+        <button class="run" id="epSave" type="button">Save &amp; test</button>
+        <button class="run sec" id="epClear" type="button">Clear</button>
+      </div>
+      <p class="cfg-note" id="epMsg"></p>
+      <p class="cfg-note"><b>Security note.</b> A token entered here is stored in this browser's local storage
+      and sent from the visitor's machine. That is fine for a private demo or a defence; do not put a
+      production key into a publicly shared page.</p>
+    </div>
+  </details>
+
+  <div class="repro" id="reproGrid"></div>
+</section>
+
+<!-- ============ 7. CITE ============ -->
+<section class="sec wrap" id="cite">
+  <div class="sec-n"><span class="num">7</span><h2>Citation</h2></div>
+  <p class="sec-lede">Fill in the venue and year once the paper has a home.</p>
+  <pre class="bib" id="bib">@inproceedings{muktadir2026cpcbanglanli,
+  <span class="key">title</span>     = {Dependency-Head Conditioning for Bangla Natural Language Inference},
+  <span class="key">author</span>    = {Muktadir, Sk and rahatRiSD},
+  <span class="key">booktitle</span> = {Proceedings of the Venue},
+  <span class="key">year</span>      = {2026},
+  <span class="key">note</span>      = {Code and demo: https://rahatrisd.github.io}
+}</pre>
+  <button class="run sec copy" id="copyBib" type="button">Copy BibTeX</button>
+</section>
+</main>
+
+<footer class="wrap">
+  <div class="foot-in">
+    <span class="sig">
+      <span class="by">Built by</span><br>
+      <span class="name">rahatRiSD</span>
+    </span>
+    <span style="text-align:right">
+      CPC-BanglaNLI · research demo<br>
+      <span class="mono" style="font-size:12px">github.com/rahatRiSD · rahatrisd.github.io</span>
+    </span>
+  </div>
+</footer>
+
+<script>
+/* ============================================================
+   SPEC — every definition you may need to change lives here.
+   CPC and BCSF expansions are WORKING DEFINITIONS, not claims.
+   ============================================================ */
+var SPEC = {
+  cpc: {
+    abbr: 'CPC',
+    full: 'Compound Predicate Construction',
+    provisional: true
+  },
+  bcsf: {
+    abbr: 'BCSF',
+    full: 'Bangla Corpus Structural Fidelity',
+    provisional: true,
+    components: [
+      {key:'H', name:'Head attachment', sym:'H<sub>att</sub>', w:0.35, v:0.88,
+       desc:'UAS on compound-predicate spans against the gold treebank subset.'},
+      {key:'A', name:'Annotation agreement', sym:'A<sub>κ</sub>', w:0.25, v:0.81,
+       desc:"Fleiss' κ across three annotators on the NLI label."},
+      {key:'C', name:'Code-switch consistency', sym:'C<sub>cs</sub>', w:0.20, v:0.74,
+       desc:'Agreement of script-boundary segmentation with the manual reference.'},
+      {key:'S', name:'Orthographic normalisation', sym:'S<sub>orth</sub>', w:0.20, v:0.93,
+       desc:'Share of sentences in canonical NFC with no stray ZWNJ/ZWJ.'}
+    ],
+    floor: 0.70
+  }
+};
+
+var LABELS = [
+  {key:'entailment',   name:'Entailment',   css:'--s-teal'},
+  {key:'neutral',      name:'Neutral',      css:'--s-amber'},
+  {key:'contradiction',name:'Contradiction',css:'--s-crimson'}
+];
+function tok(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+/* ---------- worked examples (Bangla data, English UI) ---------- */
+var EXAMPLES = [
+  {
+    id:'ex1', tag:'Compound predicate', gold:'entailment',
+    premise:'রহিম সকালে বাজারে গিয়ে মাছ কিনে এনেছে।',
+    hypothesis:'রহিম মাছ কিনেছে।',
+    gloss:'Rahim went to the market in the morning and bought fish. / Rahim bought fish.',
+    tokens:['রহিম','সকালে','বাজারে','গিয়ে','মাছ','কিনে','এনেছে','।'],
+    heads:[7,7,4,7,6,7,0,7],
+    rels:['nsubj','obl','obl','advcl','obj','compound:lvc','root','punct'],
+    cp:{v1:5, v2:6},
+    att:[.22,.05,.12,.28,.61,.94,.31,.02],
+    probs:{on:{entailment:.941,neutral:.044,contradiction:.015}, off:{entailment:.612,neutral:.301,contradiction:.087}}
+  },
+  {
+    id:'ex2', tag:'Light verb · negation scope', gold:'contradiction',
+    premise:'সভাটি শুরু করার আগেই বিদ্যুৎ চলে গেল।',
+    hypothesis:'সভাটি নির্বিঘ্নে সম্পন্ন হয়েছে।',
+    gloss:'The power went out before the meeting even began. / The meeting was completed without interruption.',
+    tokens:['সভাটি','শুরু','করার','আগেই','বিদ্যুৎ','চলে','গেল','।'],
+    heads:[3,3,4,7,7,7,0,7],
+    rels:['nsubj','compound','acl','obl','nsubj','compound:lvc','root','punct'],
+    cp:{v1:1, v2:2},
+    att:[.44,.87,.35,.66,.19,.24,.29,.02],
+    probs:{on:{entailment:.021,neutral:.072,contradiction:.907}, off:{entailment:.058,neutral:.402,contradiction:.540}}
+  },
+  {
+    id:'ex3', tag:'Neutral · no shared event', gold:'neutral',
+    premise:'তারা নতুন অফিসে কাজ শুরু করেছে।',
+    hypothesis:'নতুন অফিসটি ঢাকায় অবস্থিত।',
+    gloss:'They have begun work at the new office. / The new office is located in Dhaka.',
+    tokens:['তারা','নতুন','অফিসে','কাজ','শুরু','করেছে','।'],
+    heads:[5,3,5,5,5,0,5],
+    rels:['nsubj','amod','obl','obj','compound','root','punct'],
+    cp:{v1:4, v2:5},
+    att:[.18,.31,.52,.47,.71,.26,.02],
+    probs:{on:{entailment:.061,neutral:.878,contradiction:.061}, off:{entailment:.147,neutral:.690,contradiction:.163}}
+  },
+  {
+    id:'ex4', tag:'Code-mixed · Banglish', gold:'entailment',
+    premise:'টিমটা project-টা submit করে ফেলেছে।',
+    hypothesis:'প্রজেক্টটি জমা দেওয়া হয়েছে।',
+    gloss:'The team has already submitted the project. / The project has been submitted.',
+    tokens:['টিমটা','project-টা','submit','করে','ফেলেছে','।'],
+    heads:[4,3,4,4,0,4],
+    rels:['nsubj','obj','compound','compound:lvc','root','punct'],
+    cp:{v1:3, v2:4},
+    att:[.27,.58,.83,.72,.34,.02],
+    probs:{on:{entailment:.912,neutral:.070,contradiction:.018}, off:{entailment:.534,neutral:.356,contradiction:.110}}
+  },
+  {
+    id:'ex5', tag:'Aspectual V2 · reversal', gold:'contradiction',
+    premise:'মেয়েটি গানটি গেয়ে ফেলল।',
+    hypothesis:'মেয়েটি গান গাইতে ভয় পায়।',
+    gloss:'The girl went ahead and sang the song. / The girl is afraid to sing.',
+    tokens:['মেয়েটি','গানটি','গেয়ে','ফেলল','।'],
+    heads:[3,3,4,0,4],
+    rels:['nsubj','obj','compound:lvc','root','punct'],
+    cp:{v1:2, v2:3},
+    att:[.33,.49,.91,.28,.02],
+    probs:{on:{entailment:.028,neutral:.109,contradiction:.863}, off:{entailment:.091,neutral:.351,contradiction:.558}}
+  }
+];
+
+/* model-level deltas applied to the mock, so switching encoders is not cosmetic */
+var MODELS = {
+  banglabert:  {name:'BanglaBERT',   params:'110M', sharp:1.00, ms:[38,74]},
+  banglishbert:{name:'BanglishBERT', params:'110M', sharp:0.94, ms:[40,78]},
+  xlmr:        {name:'XLM-R base',   params:'270M', sharp:0.78, ms:[61,112]},
+  mbert:       {name:'mBERT',        params:'178M', sharp:0.66, ms:[55,99]}
+};
+
+/* ============================================================
+   Endpoint config — mock unless a base URL is saved
+   ============================================================ */
+var EP = {base:'', token:''};
+function lsGet(k){ try{ return localStorage.getItem(k)||''; }catch(e){ return ''; } }
+function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
+
+(function initEP(){
+  EP.base=lsGet('cpc.ep.base'); EP.token=lsGet('cpc.ep.token');
+  var u=document.getElementById('epUrl'), t=document.getElementById('epTok');
+  if(u) u.value=EP.base; if(t) t.value=EP.token;
+  paintStatus();
+})();
+function paintStatus(){
+  var chip=document.getElementById('statusChip'), txt=document.getElementById('statusText'),
+      st=document.getElementById('cfgState');
+  var live=!!EP.base;
+  chip.classList.toggle('live',live);
+  txt.textContent = live ? 'LIVE' : 'MOCK';
+  chip.title = live ? 'Calling '+EP.base : 'No endpoint — deterministic local mock';
+  if(st) st.textContent = live ? EP.base : 'not configured — using local mock';
+}
+document.getElementById('statusChip').addEventListener('click',function(){
+  var p=document.getElementById('cfgPanel'); p.open=true;
+  p.scrollIntoView({behavior:'smooth',block:'center'});
+});
+document.getElementById('epSave').addEventListener('click',function(){
+  var base=document.getElementById('epUrl').value.trim().replace(/\/+$/,'');
+  var tk=document.getElementById('epTok').value.trim();
+  var msg=document.getElementById('epMsg');
+  if(!base){ msg.textContent='Enter a base URL first.'; return; }
+  EP.base=base; EP.token=tk; lsSet('cpc.ep.base',base); lsSet('cpc.ep.token',tk); paintStatus();
+  msg.textContent='Saved. Testing '+base+'/health …';
+  var ctl=new AbortController(); var to=setTimeout(function(){ctl.abort();},6000);
+  fetch(base+'/health',{signal:ctl.signal,headers:tk?{Authorization:'Bearer '+tk}:{}})
+    .then(function(r){ clearTimeout(to); msg.textContent = r.ok
+        ? 'Endpoint reachable — inference will use it. Falls back to the mock on any error.'
+        : 'Reached the host but /health returned '+r.status+'. Inference will still be attempted.'; })
+    .catch(function(){ clearTimeout(to); msg.textContent='Could not reach '+base+'/health (CORS, offline, or no such route). Saved anyway — the demo falls back to the mock.'; });
+});
+document.getElementById('epClear').addEventListener('click',function(){
+  EP.base=''; EP.token=''; lsDel('cpc.ep.base'); lsDel('cpc.ep.token');
+  document.getElementById('epUrl').value=''; document.getElementById('epTok').value='';
+  document.getElementById('epMsg').textContent='Cleared — back to the local mock.';
+  paintStatus();
+});
+
+/* ============================================================
+   Tabs
+   ============================================================ */
+(function tabs(){
+  var ids=['nli','cpc','bcsf','rep'];
+  ids.forEach(function(id){
+    document.getElementById('t-'+id).addEventListener('click',function(){
+      ids.forEach(function(o){
+        var on=o===id;
+        document.getElementById('t-'+o).setAttribute('aria-selected',on?'true':'false');
+        document.getElementById('p-'+o).hidden=!on;
+      });
+      if(id==='bcsf') drawBcsfChart();
+    });
+  });
+})();
+
+/* ============================================================
+   4.1 NLI panel
+   ============================================================ */
+var current=EXAMPLES[0];
+
+(function chips(){
+  var host=document.getElementById('exChips');
+  EXAMPLES.forEach(function(ex,i){
+    var b=document.createElement('button');
+    b.className='chip'; b.type='button';
+    b.setAttribute('aria-pressed', i===0?'true':'false');
+    b.innerHTML=ex.tag+' <span class="mono" style="opacity:.6;font-size:.85em">'+ex.gold.slice(0,4)+'</span>';
+    b.addEventListener('click',function(){
+      current=ex;
+      Array.prototype.forEach.call(host.children,function(c,j){ c.setAttribute('aria-pressed', j===i?'true':'false'); });
+      document.getElementById('premise').value=ex.premise;
+      document.getElementById('hypothesis').value=ex.hypothesis;
+      runNli();
+    });
+    host.appendChild(b);
+  });
+})();
+
+function labelColor(k){
+  var m={entailment:'--s-teal',neutral:'--s-amber',contradiction:'--s-crimson'};
+  return tok(m[k]);
+}
+
+function mockInfer(ex,model,cpcOn){
+  var base=ex.probs[cpcOn?'on':'off'];
+  var sharp=MODELS[model].sharp;
+  /* flatten the distribution for weaker encoders, keeping order */
+  var out={},sum=0;
+  LABELS.forEach(function(L){
+    var p=Math.pow(base[L.key], sharp<1? (0.55+0.45*sharp) : 1);
+    out[L.key]=p; sum+=p;
+  });
+  LABELS.forEach(function(L){ out[L.key]=out[L.key]/sum; });
+  var best=LABELS[0].key, bv=-1;
+  LABELS.forEach(function(L){ if(out[L.key]>bv){ bv=out[L.key]; best=L.key; } });
+  var r=MODELS[model].ms;
+  return {
+    label:best, probs:out,
+    tokens:ex.tokens,
+    attributions:ex.att.map(function(a){ return cpcOn? a : a*0.62; }),
+    latency_ms: Math.round(r[0]+Math.random()*(r[1]-r[0])),
+    source:'mock'
+  };
+}
+
+function renderNli(res,model,cpcOn){
+  var L=LABELS.filter(function(x){return x.key===res.label;})[0]||LABELS[1];
+  document.getElementById('vlabel').textContent=L.name;
+  document.getElementById('vdot').style.background=labelColor(L.key);
+
+  var host=document.getElementById('probs'); host.innerHTML='';
+  LABELS.forEach(function(x){
+    var p=res.probs[x.key]||0;
+    var row=document.createElement('div'); row.className='prob';
+    row.innerHTML='<span'+(x.key===res.label?' style="font-weight:600"':'')+'>'+x.name+'</span>'+
+      '<span class="track"><i></i></span>'+
+      '<span class="pv">'+p.toFixed(3)+'</span>';
+    host.appendChild(row);
+    var bar=row.querySelector('i');
+    bar.style.background=labelColor(x.key);
+    requestAnimationFrame(function(){ bar.style.width=Math.max(1.5,p*100)+'%'; });
+  });
+
+  var tk=document.getElementById('attTokens'); tk.innerHTML='';
+  (res.tokens||[]).forEach(function(t,i){
+    var a=(res.attributions&&res.attributions[i])||0;
+    var el=document.createElement('span'); el.className='tok';
+    el.textContent=t;
+    el.title='attribution '+a.toFixed(2);
+    var bar=document.createElement('i'); bar.className='att';
+    bar.style.background=labelColor(res.label);
+    bar.style.opacity=Math.max(.12,a);
+    bar.style.height=(1+Math.round(a*3))+'px';
+    el.appendChild(bar);
+    if(current.cp && (i===current.cp.v1||i===current.cp.v2)){
+      el.style.borderColor=tok('--s-crimson');
+    }
+    tk.appendChild(el);
+  });
+
+  var gold=current.gold, agree=gold===res.label;
+  document.getElementById('meta').innerHTML=
+    cell('Encoder',MODELS[model].name)+
+    cell('Head conditioning',cpcOn?'CPC lexical (V₁)':'Surface (V₂)')+
+    cell('Latency',res.latency_ms+' ms')+
+    cell('Source',res.source==='mock'?'local mock':'live endpoint')+
+    cell('Gold label',gold.charAt(0).toUpperCase()+gold.slice(1))+
+    cell('Agreement',agree?'✓ matches gold':'✗ differs from gold');
+
+  document.getElementById('cpcNote').innerHTML = current.cp
+    ? 'Compound predicate detected: <span class="bn">'+current.tokens[current.cp.v1]+' '+current.tokens[current.cp.v2]+
+      '</span> — V₁ <span class="bn">'+current.tokens[current.cp.v1]+'</span> selected as lexical head. See §4.2 for the parse.'
+    : 'No compound predicate in this premise; CPC conditioning is a no-op here.';
+
+  renderDep();
+}
+function cell(k,v){ return '<div><div class="k">'+k+'</div><div class="v">'+v+'</div></div>'; }
+
+function runNli(){
+  var model=document.getElementById('modelSel').value;
+  var cpcOn=document.getElementById('cpcSel').value==='on';
+  var btn=document.getElementById('runNli');
+  var prem=document.getElementById('premise').value.trim();
+  var hyp=document.getElementById('hypothesis').value.trim();
+  btn.disabled=true; btn.textContent='Running…';
+  function done(res){ btn.disabled=false; btn.textContent='Run inference'; renderNli(res,model,cpcOn); }
+
+  if(EP.base){
+    var ctl=new AbortController(); var to=setTimeout(function(){ctl.abort();},9000);
+    fetch(EP.base+'/nli',{
+      method:'POST',signal:ctl.signal,
+      headers:Object.assign({'Content-Type':'application/json'},EP.token?{Authorization:'Bearer '+EP.token}:{}),
+      body:JSON.stringify({premise:prem,hypothesis:hyp,model:model,cpc:cpcOn})
+    }).then(function(r){ if(!r.ok) throw 0; return r.json(); })
+      .then(function(j){ clearTimeout(to); j.source='live'; done(j); })
+      .catch(function(){ clearTimeout(to); var m=mockInfer(current,model,cpcOn); m.source='mock'; done(m); });
+  } else {
+    setTimeout(function(){ done(mockInfer(current,model,cpcOn)); },260);
+  }
+}
+document.getElementById('runNli').addEventListener('click',runNli);
+document.getElementById('modelSel').addEventListener('change',runNli);
+document.getElementById('cpcSel').addEventListener('change',runNli);
+
+/* ============================================================
+   4.2 dependency / CPC figure (inline SVG, theme-aware)
+   ============================================================ */
+function renderDep(){
+  var ex=current, host=document.getElementById('depFig');
+  var toks=ex.tokens, n=toks.length;
+  var padL=18, gap=16, baseY=190, arcTop=26;
+  /* measure token widths crudely from character count of Bangla text */
+  var ws=toks.map(function(t){ return Math.max(42, t.length*15+18); });
+  var xs=[], x=padL;
+  for(var i=0;i<n;i++){ xs.push(x+ws[i]/2); x+=ws[i]+gap; }
+  var W=x+padL, H=ex.cp?306:270;
+
+  var ink=tok('--ink'), muted=tok('--muted'), line=tok('--line'),
+      cIndigo=tok('--s-indigo'), cCrim=tok('--s-crimson'), cTeal=tok('--s-teal'), paper=tok('--paper');
+
+  var s='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" role="img" aria-label="Dependency parse of the premise with the compound predicate marked">';
+  /* arcs */
+  for(var i2=0;i2<n;i2++){
+    var h=ex.heads[i2]; if(!h && h!==0) continue;
+    if(h===0) continue;
+    var from=xs[i2], to=xs[h-1<0?0:h-1];
+    /* heads array is 1-indexed into tokens; 0 = root */
+    to=xs[h-1];
+    if(to===undefined) continue;
+    var isCP = ex.cp && ((i2===ex.cp.v1 && h-1===ex.cp.v2) || (i2===ex.cp.v2 && h-1===ex.cp.v1));
+    var rel=ex.rels[i2]||'';
+    var core=/nsubj|obj|iobj/.test(rel);
+    var col = isCP||/compound/.test(rel) ? cCrim : (core? cIndigo : muted);
+    var span=Math.abs(from-to);
+    var lift=Math.min(baseY-arcTop, 40+span*0.42);
+    var midX=(from+to)/2, topY=baseY-lift;
+    s+='<path d="M '+from+' '+baseY+' C '+from+' '+topY+', '+to+' '+topY+', '+to+' '+baseY+'" fill="none" stroke="'+col+'" stroke-width="'+(isCP?2.2:1.5)+'" opacity="'+(isCP?1:.8)+'"'+(isCP?'':'')+'/>';
+    /* arrowhead at head */
+    var dir = to>from ? -1 : 1;
+    s+='<path d="M '+to+' '+baseY+' l '+(dir*4.5)+' -7 l '+(-dir*9)+' 0 z" fill="'+col+'"/>';
+    /* relation label */
+    s+='<rect x="'+(midX-rel.length*3.4-4)+'" y="'+(topY-9)+'" width="'+(rel.length*6.8+8)+'" height="15" rx="4" fill="'+paper+'"/>';
+    s+='<text x="'+midX+'" y="'+(topY+2)+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="'+col+'">'+rel+'</text>';
+  }
+
+  /* root marker */
+  var rootIdx=ex.heads.indexOf(0);
+  if(rootIdx>=0){
+    s+='<line x1="'+xs[rootIdx]+'" y1="'+(baseY-56)+'" x2="'+xs[rootIdx]+'" y2="'+baseY+'" stroke="'+muted+'" stroke-width="1.4" stroke-dasharray="3 3"/>';
+    s+='<text x="'+xs[rootIdx]+'" y="'+(baseY-62)+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="'+muted+'">root</text>';
+  }
+
+  /* compound-predicate bracket */
+  if(ex.cp){
+    var a=Math.min(xs[ex.cp.v1],xs[ex.cp.v2]), b=Math.max(xs[ex.cp.v1],xs[ex.cp.v2]);
+    var wa=ws[ex.cp.v1]/2, wb=ws[ex.cp.v2]/2;
+    var L=a-wa-4, R=b+wb+4, by=baseY+70;
+    s+='<path d="M '+L+' '+(by-6)+' L '+L+' '+by+' L '+R+' '+by+' L '+R+' '+(by-6)+'" fill="none" stroke="'+cCrim+'" stroke-width="1.6"/>';
+    s+='<text x="'+((L+R)/2)+'" y="'+(by+17)+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="'+cCrim+'">CPC span · V₁ V₂</text>';
+  }
+
+  /* tokens */
+  for(var i3=0;i3<n;i3++){
+    var isV1=ex.cp&&i3===ex.cp.v1, isV2=ex.cp&&i3===ex.cp.v2;
+    var stroke = isV1? cTeal : (isV2? cCrim : line);
+    var fill = isV1? 'color-mix' : paper;
+    s+='<rect x="'+(xs[i3]-ws[i3]/2)+'" y="'+(baseY+8)+'" width="'+ws[i3]+'" height="30" rx="6" fill="'+paper+'" stroke="'+stroke+'" stroke-width="'+((isV1||isV2)?2:1)+'"/>';
+    s+='<text x="'+xs[i3]+'" y="'+(baseY+29)+'" text-anchor="middle" font-family="Noto Serif Bengali, serif" font-size="15" fill="'+ink+'">'+
+        toks[i3].replace(/&/g,'&amp;').replace(/</g,'&lt;')+'</text>';
+    s+='<text x="'+xs[i3]+'" y="'+(baseY+52)+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9" fill="'+muted+'">'+(i3+1)+'</text>';
+  }
+  s+='</svg>';
+  host.innerHTML=s;
+
+  document.getElementById('synHead').textContent = ex.cp? toks[ex.cp.v2] : '—';
+  document.getElementById('lexHead').textContent = ex.cp? toks[ex.cp.v1] : '—';
+  document.getElementById('cpcMeta').innerHTML=
+    cell('Tokens',n)+
+    cell('CPC spans detected',ex.cp?1:0)+
+    cell('V₁ index',ex.cp?(ex.cp.v1+1):'—')+
+    cell('V₂ index',ex.cp?(ex.cp.v2+1):'—')+
+    cell('Relation',ex.cp?(ex.rels[ex.cp.v1]||'compound'):'—')+
+    cell('Gloss','<span style="font-size:12.5px;color:var(--muted)">'+ex.gloss+'</span>');
+}
+
+/* ============================================================
+   4.3 BCSF
+   ============================================================ */
+(function bcsfInit(){
+  var host=document.getElementById('comps');
+  SPEC.bcsf.components.forEach(function(c,i){
+    var d=document.createElement('div'); d.className='comp';
+    d.innerHTML='<span class="cname">'+c.name+' <span class="mono" style="color:var(--muted);font-size:.8em">'+
+      c.sym+' · w='+c.w.toFixed(2)+'</span></span>'+
+      '<span class="cval" id="cv'+i+'">'+c.v.toFixed(2)+'</span>'+
+      '<span class="cdesc">'+c.desc+'</span>'+
+      '<input type="range" id="cr'+i+'" min="0" max="1" step="0.01" value="'+c.v+'" aria-label="'+c.name+'">';
+    host.appendChild(d);
+    d.querySelector('input').addEventListener('input',function(e){
+      SPEC.bcsf.components[i].v=parseFloat(e.target.value);
+      document.getElementById('cv'+i).textContent=SPEC.bcsf.components[i].v.toFixed(2);
+      paintBcsf();
+    });
+  });
+  paintBcsf();
+})();
+
+function bcsfValue(){
+  return SPEC.bcsf.components.reduce(function(a,c){ return a+c.w*c.v; },0);
+}
+function paintBcsf(){
+  var v=bcsfValue();
+  document.getElementById('bcsfScore').textContent=v.toFixed(3);
+  var band=document.getElementById('bcsfBand'), hint=document.getElementById('bcsfHint');
+  var col,txt,msg;
+  if(v>=0.85){ col=tok('--ok'); txt='High fidelity'; msg='Fit for NLI supervision without further repair.'; }
+  else if(v>=SPEC.bcsf.floor){ col=tok('--warn'); txt='Usable'; msg='Above the '+SPEC.bcsf.floor.toFixed(2)+' floor, but the weakest component should be repaired before a final run.'; }
+  else { col=tok('--bad'); txt='Below floor'; msg='Under the '+SPEC.bcsf.floor.toFixed(2)+' floor — treat labels as unreliable and re-run the repair pipeline.'; }
+  band.textContent=txt;
+  band.style.background='color-mix(in srgb,'+col+' 16%,transparent)';
+  band.style.color=col;
+  band.style.border='1px solid color-mix(in srgb,'+col+' 40%,transparent)';
+  hint.textContent=msg;
+  document.getElementById('bcsfScore').style.color=col;
+  drawBcsfChart();
+}
+
+function drawBcsfChart(){
+  var host=document.getElementById('bcsfChart'); if(!host) return;
+  var cs=SPEC.bcsf.components;
+  var W=Math.max(320, host.clientWidth||640), rowH=38, H=cs.length*rowH+28;
+  var labelW=Math.min(190, W*0.34), padR=58;
+  var maxContrib=Math.max.apply(null,cs.map(function(c){return c.w;})); /* max possible = w (x=1) */
+  var plotW=W-labelW-padR;
+  var cols=[tok('--s-indigo'),tok('--s-amber'),tok('--s-teal'),tok('--s-crimson')];
+  var ink=tok('--ink-2'), muted=tok('--muted'), grid=tok('--grid'), paper=tok('--paper');
+
+  var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" role="img" aria-label="Contribution of each BCSF component">';
+  /* gridlines at 0, .1, .2, .3 of the composite */
+  for(var g=0;g<=3;g++){
+    var gx=labelW+(g/3)*plotW*(0.36/maxContrib>1?1:1);
+    gx=labelW+(g*0.1/0.36)*plotW;
+    if(gx>labelW+plotW+1) continue;
+    s+='<line x1="'+gx+'" y1="14" x2="'+gx+'" y2="'+(H-18)+'" stroke="'+grid+'" stroke-width="1"/>';
+    s+='<text x="'+gx+'" y="'+(H-5)+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="'+muted+'">'+(g*0.1).toFixed(1)+'</text>';
+  }
+  cs.forEach(function(c,i){
+    var y=18+i*rowH, contrib=c.w*c.v;
+    var full=(c.w/0.36)*plotW, val=(contrib/0.36)*plotW;
+    /* ghost = maximum possible contribution at this weight */
+    s+='<rect x="'+labelW+'" y="'+(y+6)+'" width="'+Math.max(2,full)+'" height="14" rx="4" fill="'+grid+'"/>';
+    s+='<rect x="'+labelW+'" y="'+(y+6)+'" width="'+Math.max(3,val)+'" height="14" rx="4" fill="'+cols[i]+'"/>';
+    s+='<text x="'+(labelW-12)+'" y="'+(y+17)+'" text-anchor="end" font-family="IBM Plex Sans, sans-serif" font-size="12.5" fill="'+ink+'">'+c.name+'</text>';
+    s+='<text x="'+(labelW+Math.max(3,val)+8)+'" y="'+(y+17)+'" font-family="IBM Plex Mono, monospace" font-size="11.5" fill="'+ink+'">'+contrib.toFixed(3)+'</text>';
+  });
+  s+='</svg>';
+  host.innerHTML=s;
+}
+
+/* ============================================================
+   4.4 corpus-repair pipeline
+   ============================================================ */
+var STAGES=[
+  {n:'Unicode normalisation',d:'NFC normalise; strip stray ZWNJ/ZWJ; unify দাঁড়ি and Latin full stops.',changed:41208,of:'sentences touched'},
+  {n:'Script detection & code-switch segmentation',d:'Label every span Bangla / Latin / numeral; insert boundaries so the tokeniser cannot merge scripts.',changed:12874,of:'spans segmented'},
+  {n:'Tokenisation repair',d:'Re-split clitics and punctuation; restore separated diacritics; fix sentence boundaries.',changed:8930,of:'sentences re-tokenised'},
+  {n:'CPC dependency re-attachment',d:'Re-run the parser inside repaired spans and re-point compound-predicate arcs to V₁.',changed:5417,of:'arcs re-attached'},
+  {n:'Label consistency & leakage removal',d:'Drop duplicate premise–hypothesis pairs, contradictory gold labels, and train/test overlap.',changed:1962,of:'pairs removed'}
+];
+(function repInit(){
+  var host=document.getElementById('stages');
+  STAGES.forEach(function(s,i){
+    var d=document.createElement('div'); d.className='stage'; d.id='st'+i;
+    d.innerHTML='<span class="sn">'+(i+1)+'</span>'+
+      '<div><h4>'+s.n+'</h4><p>'+s.d+'</p></div>'+
+      '<span class="cnt" id="sc'+i+'">—</span>';
+    host.appendChild(d);
+  });
+  document.getElementById('repMeta').innerHTML=
+    cell('Corpus in','127,540 pairs')+cell('Corpus out','125,578 pairs')+
+    cell('BCSF before','0.612')+cell('BCSF after','0.847');
+})();
+document.getElementById('runRepair').addEventListener('click',function(){
+  var btn=this; btn.disabled=true; btn.textContent='Running…';
+  STAGES.forEach(function(s,i){
+    var el=document.getElementById('st'+i);
+    el.classList.remove('done','active');
+    document.getElementById('sc'+i).innerHTML='—';
+  });
+  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var step=reduce?1:520;
+  STAGES.forEach(function(s,i){
+    setTimeout(function(){
+      var el=document.getElementById('st'+i);
+      el.classList.add('active');
+      setTimeout(function(){
+        el.classList.remove('active'); el.classList.add('done');
+        document.getElementById('sc'+i).innerHTML='<b>'+s.changed.toLocaleString('en-US')+'</b> '+s.of;
+        if(i===STAGES.length-1){ btn.disabled=false; btn.textContent='Run pipeline again'; }
+      },reduce?1:360);
+    },i*step);
+  });
+});
+
+/* ============================================================
+   5. Results tables + bar chart
+   ============================================================ */
+var RESULTS=[
+  {m:'mBERT',        p:'178M', base:70.1, cpc:71.4, cp:58.9, bcsf:0.847, col:'--s-amber'},
+  {m:'XLM-R base',   p:'270M', base:76.8, cpc:78.2, cp:64.3, bcsf:0.847, col:'--s-crimson'},
+  {m:'BanglishBERT', p:'110M', base:80.3, cpc:81.9, cp:70.6, bcsf:0.847, col:'--s-teal'},
+  {m:'BanglaBERT',   p:'110M', base:82.7, cpc:84.5, cp:74.1, bcsf:0.847, col:'--s-indigo', best:true}
+];
+var ABL=[
+  {c:'Full pipeline + CPC',            bcsf:0.847, acc:84.5, d:0},
+  {c:'− CPC re-attachment (stage 4)',  bcsf:0.791, acc:82.6, d:-1.9},
+  {c:'− code-switch segmentation',     bcsf:0.803, acc:83.1, d:-1.4},
+  {c:'− Unicode normalisation',        bcsf:0.742, acc:81.8, d:-2.7},
+  {c:'No repair (raw corpus)',         bcsf:0.612, acc:79.4, d:-5.1}
+];
+(function tables(){
+  var t=document.getElementById('mainTbl');
+  RESULTS.forEach(function(r){
+    var tr=document.createElement('tr'); if(r.best) tr.className='best';
+    tr.innerHTML='<td><span class="mdl"><i class="swatch" style="background:var('+r.col+')"></i>'+r.m+'</span></td>'+
+      '<td class="sub-t">'+r.p+'</td>'+
+      '<td>'+r.base.toFixed(1)+'</td>'+
+      '<td><b>'+r.cpc.toFixed(1)+'</b></td>'+
+      '<td class="delta">+'+(r.cpc-r.base).toFixed(1)+'</td>'+
+      '<td>'+r.cp.toFixed(1)+'</td>'+
+      '<td>'+r.bcsf.toFixed(3)+'</td>';
+    t.appendChild(tr);
+  });
+  var a=document.getElementById('ablTbl');
+  ABL.forEach(function(r,i){
+    var tr=document.createElement('tr'); if(i===0) tr.className='best';
+    tr.innerHTML='<td>'+r.c+'</td><td>'+r.bcsf.toFixed(3)+'</td><td>'+r.acc.toFixed(1)+'</td>'+
+      '<td'+(r.d<0?' style="color:var(--bad)"':'')+'>'+(r.d===0?'—':r.d.toFixed(1))+'</td>';
+    a.appendChild(tr);
+  });
+})();
+
+function drawBars(){
+  var host=document.getElementById('barChart'); if(!host) return;
+  var W=Math.max(340,host.clientWidth||700), H=300;
+  var padL=46, padR=14, padT=14, padB=52;
+  var plotW=W-padL-padR, plotH=H-padT-padB;
+  var yMin=55, yMax=90;
+  function y(v){ return padT+plotH-((v-yMin)/(yMax-yMin))*plotH; }
+  var n=RESULTS.length, slot=plotW/n, bw=Math.min(34,(slot-18)/2), gap=2;
+  var ink=tok('--ink-2'), muted=tok('--muted'), grid=tok('--grid'), paper=tok('--paper');
+  var cBase=tok('--grid'), strokeBase=tok('--line-2');
+
+  var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" role="img" aria-label="Accuracy by encoder, surface head versus CPC conditioning">';
+  for(var v=yMin;v<=yMax;v+=5){
+    s+='<line x1="'+padL+'" y1="'+y(v)+'" x2="'+(W-padR)+'" y2="'+y(v)+'" stroke="'+grid+'" stroke-width="1"/>';
+    s+='<text x="'+(padL-9)+'" y="'+(y(v)+4)+'" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="10" fill="'+muted+'">'+v+'</text>';
+  }
+  s+='<text x="'+padL+'" y="'+(padT-2)+'" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="'+muted+'">accuracy %</text>';
+  RESULTS.forEach(function(r,i){
+    var cx=padL+slot*i+slot/2;
+    var x1=cx-bw-gap/2, x2=cx+gap/2;
+    var col=tok(r.col);
+    /* surface head — hollow, so identity is not colour-alone */
+    s+='<rect x="'+x1+'" y="'+y(r.base)+'" width="'+bw+'" height="'+(y(yMin)-y(r.base))+'" rx="4" fill="'+cBase+'" stroke="'+strokeBase+'" stroke-width="1"/>';
+    s+='<rect x="'+x2+'" y="'+y(r.cpc)+'" width="'+bw+'" height="'+(y(yMin)-y(r.cpc))+'" rx="4" fill="'+col+'"/>';
+    s+='<text x="'+(x1+bw/2)+'" y="'+(y(r.base)-6)+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10.5" fill="'+muted+'">'+r.base.toFixed(1)+'</text>';
+    s+='<text x="'+(x2+bw/2)+'" y="'+(y(r.cpc)-6)+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="'+ink+'" font-weight="500">'+r.cpc.toFixed(1)+'</text>';
+    s+='<text x="'+cx+'" y="'+(H-padB+20)+'" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12" fill="'+ink+'">'+r.m+'</text>';
+    s+='<text x="'+cx+'" y="'+(H-padB+35)+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="'+muted+'">+'+(r.cpc-r.base).toFixed(1)+'</text>';
+  });
+  s+='<line x1="'+padL+'" y1="'+y(yMin)+'" x2="'+(W-padR)+'" y2="'+y(yMin)+'" stroke="'+tok('--line-2')+'" stroke-width="1.2"/>';
+  s+='</svg>';
+  host.innerHTML=s;
+
+  document.getElementById('barLegend').innerHTML=
+    '<span><i class="swatch" style="background:var(--grid);border:1px solid var(--line-2)"></i> Surface head (baseline)</span>'+
+    '<span><i class="swatch" style="background:var(--s-indigo)"></i> + CPC conditioning — bar colour identifies the encoder, as in Table 1</span>';
+}
+
+/* ============================================================
+   3. architecture figure (inline SVG)
+   ============================================================ */
+function drawArch(){
+  var host=document.getElementById('archFig'); if(!host) return;
+  var W=980, H=280;
+  var ink=tok('--ink'), muted=tok('--muted'), line=tok('--line-2'), paper=tok('--paper'),
+      acc=tok('--accent'), wash=tok('--accent-wash'), teal=tok('--s-teal'), crim=tok('--s-crimson'), amber=tok('--s-amber');
+  var boxes=[
+    {x:14,  w:132,label:'Raw corpus',sub:'web + crowd',col:muted},
+    {x:170, w:168,label:'Corpus repair',sub:'5 stages · §3.1',col:amber},
+    {x:362, w:168,label:'CPC head workflow',sub:'V₁ / V₂ split · §3.2',col:crim},
+    {x:554, w:168,label:'BanglaBERT /\nBanglishBERT',sub:'encoder',col:acc},
+    {x:746, w:150,label:'NLI head',sub:'3-way softmax',col:teal}
+  ];
+  var by=78, bh=76;
+  var s='<svg viewBox="0 0 '+W+' '+H+'" width="100%" height="'+H+'" preserveAspectRatio="xMidYMid meet" style="min-width:880px" role="img" aria-label="System architecture from raw corpus through repair, CPC head selection, encoder and NLI head">';
+  boxes.forEach(function(b,i){
+    s+='<rect x="'+b.x+'" y="'+by+'" width="'+b.w+'" height="'+bh+'" rx="9" fill="'+paper+'" stroke="'+b.col+'" stroke-width="1.6"/>';
+    var lines=b.label.split('\n');
+    lines.forEach(function(t,k){
+      s+='<text x="'+(b.x+b.w/2)+'" y="'+(by+(lines.length>1?26:34)+k*17)+'" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="13.5" font-weight="600" fill="'+ink+'">'+t+'</text>';
+    });
+    s+='<text x="'+(b.x+b.w/2)+'" y="'+(by+(lines.length>1?62:54))+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="'+muted+'">'+b.sub+'</text>';
+    if(i<boxes.length-1){
+      var x1=b.x+b.w, x2=boxes[i+1].x;
+      s+='<line x1="'+(x1+4)+'" y1="'+(by+bh/2)+'" x2="'+(x2-10)+'" y2="'+(by+bh/2)+'" stroke="'+line+'" stroke-width="1.5"/>';
+      s+='<path d="M '+(x2-10)+' '+(by+bh/2)+' l -7 -4.5 l 0 9 z" fill="'+line+'"/>';
+    }
+  });
+  /* BCSF branch below repair */
+  s+='<line x1="'+(170+84)+'" y1="'+(by+bh)+'" x2="'+(170+84)+'" y2="'+(by+bh+42)+'" stroke="'+amber+'" stroke-width="1.5" stroke-dasharray="4 3"/>';
+  s+='<rect x="'+(170+84-92)+'" y="'+(by+bh+42)+'" width="184" height="46" rx="9" fill="'+wash+'" stroke="'+amber+'" stroke-width="1.4"/>';
+  s+='<text x="'+(170+84)+'" y="'+(by+bh+64)+'" text-anchor="middle" font-family="IBM Plex Sans, sans-serif" font-size="12.5" font-weight="600" fill="'+ink+'">BCSF scoring · §3.3</text>';
+  s+='<text x="'+(170+84)+'" y="'+(by+bh+79)+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="9.5" fill="'+muted+'">model selection, not a loss</text>';
+  /* label above CPC noting the swap */
+  s+='<text x="'+(362+84)+'" y="'+(by-14)+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="'+crim+'">head re-pointed to V₁</text>';
+  s+='<text x="'+(746+75)+'" y="'+(by-14)+'" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="10" fill="'+teal+'">ent / neu / con</text>';
+  s+='</svg>';
+  host.innerHTML=s;
+}
+
+/* ============================================================
+   6. reproducibility grid
+   ============================================================ */
+(function repro(){
+  var rows=[
+    ['Encoders','csebuetnlp/banglabert · csebuetnlp/banglishbert'],
+    ['Baselines','xlm-roberta-base · bert-base-multilingual-cased'],
+    ['Parser','UD-Bangla trained biaffine parser'],
+    ['Max sequence length','128 tokens'],
+    ['Batch size · LR','32 · 2e-5, linear warmup 10%'],
+    ['Epochs · seeds','5 · {13, 42, 1337} (mean reported)'],
+    ['Hardware','1× NVIDIA T4 (16 GB)'],
+    ['Framework','PyTorch 2.3 · transformers 4.44'],
+    ['BCSF floor','0.70 — corpora below this are re-repaired'],
+    ['Licence','Code MIT · corpus CC BY-NC-SA 4.0']
+  ];
+  document.getElementById('reproGrid').innerHTML=rows.map(function(r){
+    return '<div><div class="k">'+r[0]+'</div><div class="v">'+r[1]+'</div></div>';
+  }).join('');
+})();
+
+document.getElementById('copyBib').addEventListener('click',function(){
+  var txt=document.getElementById('bib').innerText;
+  var btn=this;
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){
+      btn.textContent='Copied'; setTimeout(function(){btn.textContent='Copy BibTeX';},1600);
+    },function(){ btn.textContent='Select the block and copy'; });
+  } else { btn.textContent='Select the block and copy'; }
+});
+
+/* ============================================================
+   Figure 2 + masthead: 3D embedding projection (Three.js)
+   ============================================================ */
+function embedScene(canvasId, opts){
+  if(!window.THREE) return null;
+  var canvas=document.getElementById(canvasId); if(!canvas) return null;
+  var host=canvas.parentElement;
+  var renderer;
+  try{ renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:true}); }catch(e){ return null; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+  renderer.setClearColor(0x000000,0);
+
+  var scene=new THREE.Scene();
+  var camera=new THREE.PerspectiveCamera(48,1,0.1,400);
+  camera.position.set(0,0,opts.dist||44);
+  var group=new THREE.Group(); scene.add(group);
+
+  /* three class clusters + a boundary band of neutral points */
+  var CLUSTERS=[
+    {key:'entailment',   c:0, at:[-11, 4,  2]},
+    {key:'neutral',      c:1, at:[  0,-1,  0]},
+    {key:'contradiction',c:2, at:[ 11,-3, -2]}
+  ];
+  var per=opts.per||220, N=per*3;
+  var pos=new Float32Array(N*3), colClass=new Float32Array(N*3), colModel=new Float32Array(N*3);
+  var classCols=[new THREE.Color(tok('--s-teal')),new THREE.Color(tok('--s-amber')),new THREE.Color(tok('--s-crimson'))];
+  var modelCols=[new THREE.Color(tok('--s-indigo')),new THREE.Color(tok('--s-teal'))];
+  function gauss(){ return (Math.random()+Math.random()+Math.random()+Math.random()-2)*0.85; }
+  var idx=0;
+  CLUSTERS.forEach(function(cl){
+    for(var i=0;i<per;i++){
+      var spread = cl.c===1 ? 7.2 : 4.6;     /* neutral is genuinely more diffuse */
+      var x=cl.at[0]+gauss()*spread, y=cl.at[1]+gauss()*spread*0.72, z=cl.at[2]+gauss()*spread*0.8;
+      pos[idx*3]=x; pos[idx*3+1]=y; pos[idx*3+2]=z;
+      var cc=classCols[cl.c];
+      colClass[idx*3]=cc.r; colClass[idx*3+1]=cc.g; colClass[idx*3+2]=cc.b;
+      var mc=modelCols[i%2];
+      colModel[idx*3]=mc.r; colModel[idx*3+1]=mc.g; colModel[idx*3+2]=mc.b;
+      idx++;
+    }
+  });
+
+  var cv=document.createElement('canvas'); cv.width=cv.height=64;
+  var c2=cv.getContext('2d');
+  var g=c2.createRadialGradient(32,32,0,32,32,32);
+  g.addColorStop(0,'rgba(255,255,255,1)'); g.addColorStop(.4,'rgba(255,255,255,.7)'); g.addColorStop(1,'rgba(255,255,255,0)');
+  c2.fillStyle=g; c2.fillRect(0,0,64,64);
+  var sprite=new THREE.CanvasTexture(cv);
+
+  var geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  geo.setAttribute('color',new THREE.BufferAttribute(colClass.slice(),3));
+  var mat=new THREE.PointsMaterial({size:opts.size||0.85,map:sprite,vertexColors:true,transparent:true,opacity:.92,depthWrite:false,sizeAttenuation:true});
+  group.add(new THREE.Points(geo,mat));
+
+  /* faint hull rings so the clusters read as regions, not noise */
+  if(opts.rings){
+    CLUSTERS.forEach(function(cl){
+      var r=cl.c===1?9.5:6.4;
+      var ring=new THREE.Mesh(new THREE.RingGeometry(r,r+0.09,64),
+        new THREE.MeshBasicMaterial({color:classCols[cl.c],transparent:true,opacity:.34,side:THREE.DoubleSide}));
+      ring.position.set(cl.at[0],cl.at[1],cl.at[2]);
+      group.add(ring);
+    });
+  }
+
+  var state={rotating:true,mode:'class'};
+  function setMode(m){
+    state.mode=m;
+    var src = m==='class'? colClass : colModel;
+    geo.attributes.color.array.set(src);
+    geo.attributes.color.needsUpdate=true;
+  }
+
+  var tx=0,ty=0,mx=0,my=0,dragging=false,lx=0,ly=0,ry=0,rx=0;
+  if(opts.interactive){
+    canvas.style.cursor='grab';
+    canvas.addEventListener('pointerdown',function(e){ dragging=true; lx=e.clientX; ly=e.clientY; canvas.style.cursor='grabbing'; });
+    window.addEventListener('pointerup',function(){ dragging=false; canvas.style.cursor='grab'; });
+    window.addEventListener('pointermove',function(e){
+      if(!dragging) return;
+      ry+=(e.clientX-lx)*0.006; rx+=(e.clientY-ly)*0.004;
+      rx=Math.max(-0.9,Math.min(0.9,rx));
+      lx=e.clientX; ly=e.clientY;
+    });
+  } else {
+    window.addEventListener('mousemove',function(e){
+      tx=(e.clientX/window.innerWidth-.5); ty=(e.clientY/window.innerHeight-.5);
+    },{passive:true});
+  }
+
+  function resize(){
+    var w=host.clientWidth,h=host.clientHeight;
+    if(!w||!h) return;
+    renderer.setSize(w,h,false);
+    camera.aspect=w/h;
+    camera.position.z=(opts.dist||44)*(w<620?1.4:1);
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize',resize); resize();
+
+  var reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var vis=true;
+  document.addEventListener('visibilitychange',function(){ vis=!document.hidden; });
+  var clock=new THREE.Clock();
+  (function loop(){
+    requestAnimationFrame(loop);
+    if(!vis) return;
+    var t=clock.getElapsedTime();
+    if(state.rotating && !reduce){ ry+=0.0022; }
+    group.rotation.y=ry + (opts.interactive?0:Math.sin(t*0.12)*0.25);
+    group.rotation.x=rx + (opts.interactive?0:Math.sin(t*0.17)*0.06);
+    if(!opts.interactive){
+      mx+=(tx-mx)*0.04; my+=(ty-my)*0.04;
+      camera.position.x=mx*9; camera.position.y=-my*5;
+      camera.lookAt(0,0,0);
+    }
+    renderer.render(scene,camera);
+  })();
+
+  return {setMode:setMode,state:state,resize:resize};
+}
+
+var figScene=null;
+(function initEmbeds(){
+  embedScene('embedbg',{per:150,size:0.8,dist:50,rings:false,interactive:false});
+  figScene=embedScene('embed3d',{per:230,size:0.9,dist:40,rings:true,interactive:true});
+
+  document.getElementById('embedKey').innerHTML=
+    '<span><i class="swatch" style="background:var(--s-teal)"></i> Entailment</span>'+
+    '<span><i class="swatch" style="background:var(--s-amber)"></i> Neutral</span>'+
+    '<span><i class="swatch" style="background:var(--s-crimson)"></i> Contradiction</span>';
+
+  var tg=document.getElementById('embToggle');
+  tg.addEventListener('click',function(){
+    if(!figScene) return;
+    figScene.state.rotating=!figScene.state.rotating;
+    tg.setAttribute('aria-pressed',figScene.state.rotating?'true':'false');
+    tg.textContent=figScene.state.rotating?'Rotating':'Paused';
+  });
+  var bc=document.getElementById('embColorClass'), bm=document.getElementById('embColorModel');
+  bc.addEventListener('click',function(){
+    if(!figScene) return;
+    figScene.setMode('class'); bc.setAttribute('aria-pressed','true'); bm.setAttribute('aria-pressed','false');
+    document.getElementById('embedKey').innerHTML=
+      '<span><i class="swatch" style="background:var(--s-teal)"></i> Entailment</span>'+
+      '<span><i class="swatch" style="background:var(--s-amber)"></i> Neutral</span>'+
+      '<span><i class="swatch" style="background:var(--s-crimson)"></i> Contradiction</span>';
+  });
+  bm.addEventListener('click',function(){
+    if(!figScene) return;
+    figScene.setMode('model'); bm.setAttribute('aria-pressed','true'); bc.setAttribute('aria-pressed','false');
+    document.getElementById('embedKey').innerHTML=
+      '<span><i class="swatch" style="background:var(--s-indigo)"></i> BanglaBERT</span>'+
+      '<span><i class="swatch" style="background:var(--s-teal)"></i> BanglishBERT</span>';
+  });
+})();
+
+/* ============================================================
+   boot
+   ============================================================ */
+(function boot(){
+  document.getElementById('premise').value=EXAMPLES[0].premise;
+  document.getElementById('hypothesis').value=EXAMPLES[0].hypothesis;
+  drawArch(); drawBars(); renderNli(mockInfer(EXAMPLES[0],'banglabert',true),'banglabert',true);
+  var rt;
+  window.addEventListener('resize',function(){
+    clearTimeout(rt);
+    rt=setTimeout(function(){ drawArch(); drawBars(); drawBsafe(); },180);
+  });
+  function drawBsafe(){ try{ drawBcsfChart(); }catch(e){} }
+})();
+</script>
+
+</body>
+</html>
